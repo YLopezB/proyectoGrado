@@ -1,6 +1,6 @@
-# Nexo — tareas, comunicación interna y repositorio organizacional
+# Tareas, comunicación interna y repositorio organizacional
 
-Aplicación web para **gestión de tareas, comunicación interna en tiempo real, publicaciones, estructura organizacional (áreas, cargos, organigrama, directorio) y centralización de documentos**, construida con microservicios y desplegable 100 % con Docker. La interfaz sigue las plantillas de diseño de Figma «Nexo» y la marca (nombre, eslogan, logo, colores, foto de inicio de sesión) es configurable.
+Aplicación web para **gestión de tareas, comunicación interna en tiempo real, publicaciones, estructura organizacional (áreas, cargos, organigrama, directorio) y centralización de documentos**, construida con microservicios y desplegable 100 % con Docker. La interfaz sigue las plantillas de diseño de Figma y la marca (nombre, eslogan, logo, colores, foto de inicio de sesión) es configurable.
 
 | Capa | Tecnología |
 |---|---|
@@ -31,7 +31,7 @@ flowchart TD
     US -. "borra archivos al eliminar un usuario (red interna)" .-> R
 ```
 
-Sigue el diagrama de `arquitectura.pdf` (Autenticación, Tareas, Usuarios, Repositorio, Chat, PostgreSQL y repositorio de archivos) y añade dos servicios para los módulos de Nexo: **org-service** (empresa, áreas y cargos) y **post-service** (publicaciones). Decisiones de diseño a tener en cuenta:
+Decisiones de diseño a tener en cuenta:
 
 * **El WebSocket del chat también pasa por el gateway** (`/socket.io`), no se expone el puerto del chat. Así el sistema tiene un único puerto público y HTTPS/WSS funcionan con un solo certificado.
 * **Los permisos se leen de la base de datos en cada petición**: desactivar a una persona o quitarle un permiso surte efecto de inmediato, sin esperar a que expire su sesión.
@@ -42,7 +42,7 @@ Sigue el diagrama de `arquitectura.pdf` (Autenticación, Tareas, Usuarios, Repos
 | Servicio | Puerto interno | Responsabilidad |
 |---|---|---|
 | `gateway` | 80 / 443 | Enruta `/api/*`, `/socket.io` y el frontend; cabeceras de seguridad; límite de peticiones en el login; oculta `/internal` |
-| `frontend` | 80 (dev: 5173) | SPA React (Nexo): interfaz de **usuario** (`/`) y de **administración** (`/admin/...`) |
+| `frontend` | 80 (dev: 5173) | SPA React: interfaz de **usuario** (`/`) y de **administración** (`/admin/...`) |
 | `auth-service` | 4001 | Login (por usuario o documento), sesión (`/me`), cambio de contraseña, emisión de JWT |
 | `user-service` | 4002 | Personas: alta/edición, nivel y permisos, activar/desactivar, restablecer contraseña, directorio, perfil propio |
 | `task-service` | 4003 | Tareas asignadas, autoasignadas y solicitudes (según la jerarquía de áreas y cargos), completar con nota y adjunto, notificaciones |
@@ -69,13 +69,12 @@ Solo el **gateway** publica puertos en producción. PostgreSQL y los microservic
 ```
 .
 ├── docker-compose.yml          # PRODUCCIÓN
-├── docker-compose.dev.yml      # DESARROLLO (hot-reload)
+├── docker-compose.dev.yml      # DESARROLLO
 ├── .env.example                # plantilla de configuración  →  copiar a .env
 ├── db/init/01-schema.sql       # esquema de la base de datos
 ├── gateway/                    # configuración nginx (dev, prod, prod+HTTPS)
 │   ├── nginx.dev.conf  nginx.prod.conf  nginx.prod.ssl.conf
 │   └── snippets/               # rutas y cabeceras compartidas
-├── certs/                      # certificados TLS (solo si usas HTTPS)
 ├── services/
 │   ├── Dockerfile              # genérico (targets: dev | prod)
 │   ├── shared/                 # código común: BD, JWT, errores, app Express
@@ -83,7 +82,6 @@ Solo el **gateway** publica puertos en producción. PostgreSQL y los microservic
 │   └── chat-service/ org-service/ post-service/
 ├── frontend/                   # React + Vite + Tailwind
 └── scripts/
-    ├── init-env.sh             # genera .env con secretos aleatorios
     └── backup.sh               # respaldo de BD + archivos (producción)
 ```
 
@@ -92,14 +90,12 @@ Solo el **gateway** publica puertos en producción. PostgreSQL y los microservic
 ## 4. Configuración (`.env`)
 
 ```bash
-./scripts/init-env.sh              # crea .env con secretos aleatorios y muestra la clave del admin
-# o bien, manualmente:
 cp .env.example .env               # y edita los valores
 ```
 
 | Variable | Descripción |
 |---|---|
-| `ADMIN_USER` / `ADMIN_PASSWORD` | **Credenciales del administrador.** `ADMIN_PASSWORD` es la contraseña inicial; si el administrador la cambia desde la plataforma, prevalece la guardada en la base de datos (ver 6.6) |
+| `ADMIN_USER` / `ADMIN_PASSWORD` | **Credenciales del administrador.** `ADMIN_PASSWORD` es la contraseña inicial; el administrador puede luego cambiarla en la plataforma |
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | Base de datos |
 | `JWT_SECRET` | Firma de sesiones. Largo y aleatorio (`openssl rand -hex 32`) |
 | `INTERNAL_API_KEY` | Llave de comunicación entre microservicios |
@@ -126,7 +122,6 @@ cp .env.example .env               # y edita los valores
 ## 5. Desarrollo
 
 ```bash
-./scripts/init-env.sh
 docker compose -f docker-compose.dev.yml up --build
 ```
 
@@ -159,7 +154,7 @@ sudo ufw allow 22/tcp && sudo ufw allow 80/tcp && sudo ufw allow 443/tcp && sudo
 
 ```bash
 git clone <tu-repositorio> plataforma && cd plataforma     # o copia la carpeta al servidor
-./scripts/init-env.sh 'LaClaveQueQuieras1!'                 # genera .env (anota la clave del admin)
+cp .env.example .env                                       # y edita los valores (anota la clave del admin)
 docker compose up -d --build
 docker compose ps                                          # todos deben aparecer "healthy" / "running"
 ```
@@ -208,7 +203,7 @@ git pull
 docker compose up -d --build        # reconstruye solo lo que cambió; los datos se conservan
 ```
 
-> **Migrar desde la versión anterior (sin Nexo):** el esquema cambió por completo (usuarios con áreas/cargos, publicaciones, etc.). Si no necesitas conservar los datos, ejecuta `docker compose down -v` y vuelve a levantar. No hay script de migración de datos.
+> **Migrar desde la versión anterior:** el esquema cambió por completo (usuarios con áreas/cargos, publicaciones, etc.). Si no necesitas conservar los datos, ejecuta `docker compose down -v` y vuelve a levantar. No hay script de migración de datos.
 
 Si la nueva versión modifica el esquema SQL, aplícalo sobre la base existente (el script es idempotente):
 

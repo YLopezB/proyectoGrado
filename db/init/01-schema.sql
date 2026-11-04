@@ -1,5 +1,4 @@
--- Esquema Nexo. Se ejecuta SOLO la primera vez que se crea el volumen de PostgreSQL.
--- (Todo es idempotente: puedes reaplicarlo manualmente sin perder datos, ver README.)
+-- Esquema. Se ejecuta SOLO la primera vez que se crea el volumen de PostgreSQL.
 
 -- ---------- Estructura organizacional ----------
 CREATE TABLE IF NOT EXISTS areas (
