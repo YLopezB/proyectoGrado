@@ -96,7 +96,7 @@ function Sidebar({ user, logout, pending }) {
   const c = useCompany();
   const groups = buildNav(user, pending);
   return (
-    <aside className="no-print fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col overflow-y-auto border-r border-line bg-white lg:flex">
+    <aside className="no-print fixed inset-y-0  z-30 hidden w-[248px] flex-col overflow-y-auto border-r border-line bg-white lg:flex">
       <Brand />
       <nav className="mt-9 px-6" aria-label="Principal">
         {groups.map((g, i) => (
@@ -309,7 +309,7 @@ function Shell() {
   const { pathname } = useLocation();
   useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
   return (
-    <div className="min-h-screen bg-page">
+    <div className="min-h-screen bg-page mx-auto max-w-[1440px]">
       <Sidebar user={user} logout={logout} pending={pending} />
       <div className="lg:pl-[248px]">
         <Header user={user} />

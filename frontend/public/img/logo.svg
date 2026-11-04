@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 40" role="img" aria-label="Nexo">
-  <rect x="3" y="3" width="34" height="34" rx="9" fill="#184f5b"/>
-  <g fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="13.5" cy="25.5" r="2.6"/><circle cx="26.5" cy="14.5" r="2.6"/>
-    <path d="M15.4 23.6 L24.6 16.4"/><path d="M26.5 17.1v3.4a2 2 0 0 1-2 2h-3.2"/><path d="M13.5 22.9v-3.4a2 2 0 0 1 2-2h3.2"/>
-  </g>
-  <text x="46" y="29" font-family="Inter, 'Segoe UI', Roboto, Arial, sans-serif" font-size="26" font-weight="700" fill="#203338" letter-spacing="-0.5">Nexo</text>
-</svg>

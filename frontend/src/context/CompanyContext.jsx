@@ -32,7 +32,7 @@ export function CompanyProvider({ children }) {
 
   const value = useMemo(() => ({
     ...company, ready, reload: load,
-    logoUrl: company.hasLogo ? `/api/company/logo?v=${company.version}` : '/img/logo.svg',
+    logoUrl: company.hasLogo ? `/api/company/logo?v=${company.version}` : '/img/logo.png',
     loginBgUrl: company.hasLoginBg ? `/api/company/login-bg?v=${company.version}` : '/img/login-bg.jpg',
   }), [company, ready, load]);
   return <CompanyContext.Provider value={value}>{children}</CompanyContext.Provider>;

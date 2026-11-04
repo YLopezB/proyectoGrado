@@ -112,7 +112,7 @@ cp .env.example .env               # y edita los valores
 | `DEV_HTTP_PORT` | Puerto del gateway en **desarrollo** (8080) |
 | `GATEWAY_CONF` | `nginx.prod.conf` (HTTP) o `nginx.prod.ssl.conf` (HTTPS) |
 
-**Marca**: el logo por defecto es `frontend/public/img/logo.svg` y la foto del login `frontend/public/img/login-bg.jpg`; reemplaza esos archivos (misma ruta) antes de construir para cambiarlos. Después, el administrador puede subir otro logo/foto, nombre, eslogan y colores desde **Administración → Empresa** sin reconstruir nada; eso se guarda en el volumen `company-data`.
+**Marca**: el logo por defecto es `frontend/public/img/logo.png` y la foto del login `frontend/public/img/login-bg.jpg`; reemplaza esos archivos (misma ruta) antes de construir para cambiarlos. Después, el administrador puede subir otro logo/foto, nombre, eslogan y colores desde **Administración → Empresa** sin reconstruir nada; eso se guarda en el volumen `company-data`.
 
 > Si un valor contiene `$` o `#`, enciérralo entre comillas simples: `ADMIN_PASSWORD='Abc$123#'`.
 > Nunca subas `.env` a un repositorio (ya está en `.gitignore`).

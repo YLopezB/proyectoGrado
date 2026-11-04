@@ -88,7 +88,7 @@ export default function Company() {
           <h2 className="mb-5 text-[20px] font-semibold text-ink">Imágenes</h2>
           <div className="grid gap-6 md:grid-cols-2">
             <ImagePicker title="Logo" hint="PNG, SVG o JPG con fondo transparente o blanco · Máximo 10 MB."
-              current={logo?.remove ? '/img/logo.svg' : c.logoUrl} picked={logo?.file ? logo : null}
+              current={logo?.remove ? '/img/logo.png' : c.logoUrl} picked={logo?.file ? logo : null}
               onFile={(file) => pick(setLogo, file)} onReset={() => setLogo({ remove: true })} />
             <ImagePicker title="Foto organizacional (inicio de sesión)" hint="JPG o PNG · Recomendado: 1440 × 1000 px · Máximo 10 MB." dark
               current={bg?.remove ? '/img/login-bg.jpg' : c.loginBgUrl} picked={bg?.file ? bg : null}
