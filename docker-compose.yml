@@ -1,0 +1,194 @@
+# =====================================================================
+#  PRODUCCIÓN  —  imágenes mínimas, usuario no-root, solo el gateway expuesto
+#  Uso:  docker compose up -d --build
+#  Acceso: http://<servidor>:${HTTP_PORT}   (o https si GATEWAY_CONF=nginx.prod.ssl.conf)
+# =====================================================================
+name: plataforma
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }
+
+x-db-env: &db-env
+  DB_HOST: postgres
+  POSTGRES_DB: ${POSTGRES_DB:?Falta POSTGRES_DB en .env}
+  POSTGRES_USER: ${POSTGRES_USER:?Falta POSTGRES_USER en .env}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}
+  JWT_SECRET: ${JWT_SECRET:?Falta JWT_SECRET en .env}
+
+x-node-service: &node-service
+  restart: always
+  logging: *logging
+  security_opt: ["no-new-privileges:true"]
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+x-healthcheck: &hc
+  interval: 15s
+  timeout: 5s
+  retries: 5
+  start_period: 20s
+
+services:
+  # ---------- Capa de persistencia (sin puertos publicados) ----------
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    logging: *logging
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Falta POSTGRES_DB en .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Falta POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}
+      TZ: America/Bogota
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ---------- Microservicios ----------
+  auth-service:
+    <<: *node-service
+    build: { context: ./services, dockerfile: Dockerfile, target: prod, args: { SERVICE: auth-service } }
+    environment:
+      <<: *db-env
+      PORT: 4001
+      ADMIN_USER: ${ADMIN_USER:?Falta ADMIN_USER en .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Falta ADMIN_PASSWORD en .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      LOGIN_RATE_LIMIT: ${LOGIN_RATE_LIMIT:-30}
+    healthcheck:
+      <<: *hc
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4001/health"]
+
+  user-service:
+    <<: *node-service
+    build: { context: ./services, dockerfile: Dockerfile, target: prod, args: { SERVICE: user-service } }
+    environment:
+      <<: *db-env
+      PORT: 4002
+      ADMIN_USER: ${ADMIN_USER}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Falta INTERNAL_API_KEY en .env}
+      REPOSITORY_URL: http://repository-service:4004
+    healthcheck:
+      <<: *hc
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4002/health"]
+
+  task-service:
+    <<: *node-service
+    build: { context: ./services, dockerfile: Dockerfile, target: prod, args: { SERVICE: task-service } }
+    environment:
+      <<: *db-env
+      PORT: 4003
+    healthcheck:
+      <<: *hc
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4003/health"]
+
+  repository-service:
+    <<: *node-service
+    build: { context: ./services, dockerfile: Dockerfile, target: prod, args: { SERVICE: repository-service } }
+    environment:
+      <<: *db-env
+      PORT: 4004
+      DATA_DIR: /data
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-50}
+      USER_QUOTA_MB: ${USER_QUOTA_MB:-500}
+      BLOCKED_EXTENSIONS: ${BLOCKED_EXTENSIONS:-exe,msi,bat,cmd,com,scr,vbs,ps1,jar,dll}
+    volumes:
+      - repo-data:/data   # repositorio de archivos y directorios (documentos, fotos, etc.)
+    healthcheck:
+      <<: *hc
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4004/health"]
+
+  chat-service:
+    <<: *node-service
+    build: { context: ./services, dockerfile: Dockerfile, target: prod, args: { SERVICE: chat-service } }
+    environment:
+      <<: *db-env
+      PORT: 4005
+    healthcheck:
+      <<: *hc
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4005/health"]
+
+  org-service:
+    <<: *node-service
+    build: { context: ./services, dockerfile: Dockerfile, target: prod, args: { SERVICE: org-service } }
+    environment:
+      <<: *db-env
+      PORT: 4006
+      DATA_DIR: /data
+      COMPANY_NAME: ${COMPANY_NAME:-Nombre empresa}
+      COMPANY_SLOGAN: ${COMPANY_SLOGAN:-Eslogan empresarial}
+      COMPANY_PRIMARY_COLOR: ${COMPANY_PRIMARY_COLOR:-#184f5b}
+      COMPANY_ACCENT_COLOR: ${COMPANY_ACCENT_COLOR:-#e8f0f0}
+      COMPANY_LOGIN_TEXT: ${COMPANY_LOGIN_TEXT:-Una solución simple a la comunicación de tu organización}
+      HELP_URL: ${HELP_URL:-}
+      DEVELOPER_NAME: ${DEVELOPER_NAME:-Yeison Andres López Burbano}
+      DEVELOPER_URL: ${DEVELOPER_URL:-}
+    volumes:
+      - company-data:/data   # logo y foto de inicio de sesión personalizados
+    healthcheck:
+      <<: *hc
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4006/health"]
+
+  post-service:
+    <<: *node-service
+    build: { context: ./services, dockerfile: Dockerfile, target: prod, args: { SERVICE: post-service } }
+    environment:
+      <<: *db-env
+      PORT: 4007
+    healthcheck:
+      <<: *hc
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4007/health"]
+
+  # ---------- Frontend (build estático servido por nginx) ----------
+  frontend:
+    build: { context: ./frontend, dockerfile: Dockerfile, target: prod }
+    restart: always
+    logging: *logging
+    security_opt: ["no-new-privileges:true"]
+
+  # ---------- API Gateway: único punto de entrada ----------
+  gateway:
+    image: nginx:1.27-alpine
+    restart: always
+    logging: *logging
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./gateway/${GATEWAY_CONF:-nginx.prod.conf}:/etc/nginx/nginx.conf:ro
+      - ./gateway/snippets:/etc/nginx/snippets:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      frontend:
+        condition: service_started
+      auth-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      task-service:
+        condition: service_healthy
+      repository-service:
+        condition: service_healthy
+      chat-service:
+        condition: service_healthy
+      org-service:
+        condition: service_healthy
+      post-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/gateway-health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+  repo-data:
+  company-data:

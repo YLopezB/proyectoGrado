@@ -1,0 +1,169 @@
+# =====================================================================
+#  DESARROLLO  —  hot-reload en backend (nodemon) y frontend (Vite)
+#  Uso:  docker compose -f docker-compose.dev.yml up --build
+#  Acceso: http://localhost:8080  (o el puerto DEV_HTTP_PORT del .env)
+# =====================================================================
+name: plataforma-dev
+
+x-db-env: &db-env
+  DB_HOST: postgres
+  POSTGRES_DB: ${POSTGRES_DB:?Falta POSTGRES_DB en .env}
+  POSTGRES_USER: ${POSTGRES_USER:?Falta POSTGRES_USER en .env}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}
+  JWT_SECRET: ${JWT_SECRET:?Falta JWT_SECRET en .env}
+
+x-node-service: &node-service
+  restart: unless-stopped
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  # ---------- Capa de persistencia ----------
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Falta POSTGRES_DB en .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Falta POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}
+      TZ: America/Bogota
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:5432:5432"   # solo accesible desde tu máquina (DBeaver, psql, ...)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ---------- Microservicios ----------
+  auth-service:
+    <<: *node-service
+    build: { context: ./services, dockerfile: Dockerfile, target: dev, args: { SERVICE: auth-service } }
+    environment:
+      <<: *db-env
+      PORT: 4001
+      ADMIN_USER: ${ADMIN_USER:?Falta ADMIN_USER en .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Falta ADMIN_PASSWORD en .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      LOGIN_RATE_LIMIT: ${LOGIN_RATE_LIMIT:-30}
+    volumes:
+      - ./services/auth-service/src:/app/service/src
+      - ./services/shared:/app/shared
+
+  user-service:
+    <<: *node-service
+    build: { context: ./services, dockerfile: Dockerfile, target: dev, args: { SERVICE: user-service } }
+    environment:
+      <<: *db-env
+      PORT: 4002
+      ADMIN_USER: ${ADMIN_USER}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Falta INTERNAL_API_KEY en .env}
+      REPOSITORY_URL: http://repository-service:4004
+    volumes:
+      - ./services/user-service/src:/app/service/src
+      - ./services/shared:/app/shared
+
+  task-service:
+    <<: *node-service
+    build: { context: ./services, dockerfile: Dockerfile, target: dev, args: { SERVICE: task-service } }
+    environment:
+      <<: *db-env
+      PORT: 4003
+    volumes:
+      - ./services/task-service/src:/app/service/src
+      - ./services/shared:/app/shared
+
+  repository-service:
+    <<: *node-service
+    build: { context: ./services, dockerfile: Dockerfile, target: dev, args: { SERVICE: repository-service } }
+    environment:
+      <<: *db-env
+      PORT: 4004
+      DATA_DIR: /data
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-50}
+      USER_QUOTA_MB: ${USER_QUOTA_MB:-500}
+      BLOCKED_EXTENSIONS: ${BLOCKED_EXTENSIONS:-exe,msi,bat,cmd,com,scr,vbs,ps1,jar,dll}
+    volumes:
+      - ./services/repository-service/src:/app/service/src
+      - ./services/shared:/app/shared
+      - repo-data-dev:/data   # repositorio de archivos y directorios
+
+  chat-service:
+    <<: *node-service
+    build: { context: ./services, dockerfile: Dockerfile, target: dev, args: { SERVICE: chat-service } }
+    environment:
+      <<: *db-env
+      PORT: 4005
+    volumes:
+      - ./services/chat-service/src:/app/service/src
+      - ./services/shared:/app/shared
+
+  org-service:
+    <<: *node-service
+    build: { context: ./services, dockerfile: Dockerfile, target: dev, args: { SERVICE: org-service } }
+    environment:
+      <<: *db-env
+      PORT: 4006
+      DATA_DIR: /data
+      COMPANY_NAME: ${COMPANY_NAME:-Nombre empresa}
+      COMPANY_SLOGAN: ${COMPANY_SLOGAN:-Eslogan empresarial}
+      COMPANY_PRIMARY_COLOR: ${COMPANY_PRIMARY_COLOR:-#184f5b}
+      COMPANY_ACCENT_COLOR: ${COMPANY_ACCENT_COLOR:-#e8f0f0}
+      COMPANY_LOGIN_TEXT: ${COMPANY_LOGIN_TEXT:-Una solución simple a la comunicación de tu organización}
+      HELP_URL: ${HELP_URL:-}
+      DEVELOPER_NAME: ${DEVELOPER_NAME:-Yeison Andres López Burbano}
+      DEVELOPER_URL: ${DEVELOPER_URL:-}
+    volumes:
+      - ./services/org-service/src:/app/service/src
+      - ./services/shared:/app/shared
+      - company-data-dev:/data
+
+  post-service:
+    <<: *node-service
+    build: { context: ./services, dockerfile: Dockerfile, target: dev, args: { SERVICE: post-service } }
+    environment:
+      <<: *db-env
+      PORT: 4007
+    volumes:
+      - ./services/post-service/src:/app/service/src
+      - ./services/shared:/app/shared
+
+  # ---------- Frontend (Vite + React + Tailwind) ----------
+  frontend:
+    build: { context: ./frontend, dockerfile: Dockerfile, target: dev }
+    restart: unless-stopped
+    environment:
+      VITE_HMR_CLIENT_PORT: ${DEV_HTTP_PORT:-8080}
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+
+  # ---------- API Gateway ----------
+  gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${DEV_HTTP_PORT:-8080}:80"
+    volumes:
+      - ./gateway/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+      - ./gateway/snippets:/etc/nginx/snippets:ro
+    depends_on:
+      - frontend
+      - auth-service
+      - user-service
+      - task-service
+      - repository-service
+      - chat-service
+      - org-service
+      - post-service
+
+volumes:
+  pgdata-dev:
+  repo-data-dev:
+  company-data-dev:
+  frontend-node-modules:
