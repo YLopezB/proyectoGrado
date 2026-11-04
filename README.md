@@ -310,11 +310,3 @@ Todas las rutas `/api/*` (salvo `login` y `GET /api/company`) requieren `Authori
 | Quiero empezar de cero | `docker compose down -v` (**elimina base de datos y archivos**) |
 
 ---
-
-## 9. Estado de las pruebas y alcance
-
-**Verificado en el entorno de desarrollo del autor** (PostgreSQL 16, nginx y los 7 servicios Node ejecutados directamente, sin contenedores): más de 110 pruebas de API a través del gateway (permisos, jerarquía de tareas, repositorio, publicaciones, empresa, desactivación inmediata), el chat por WebSocket y un recorrido de interfaz en Chrome (login, cambio de contraseña obligatorio, todas las pantallas de usuario y administración, vista móvil) sin errores en consola.
-
-**No verificado:** los `Dockerfile` y `docker-compose*.yml` no pudieron ejecutarse en ese entorno (no había Docker). Los YAML se validaron sintácticamente; en el primer `docker compose up --build` revisa `docker compose logs` por si hiciera falta un ajuste.
-
-**Fuera de alcance por ahora:** firma de documentos (Documentos por firmar, Solicitar firma, firma digital) y el aviso por correo al crear una tarea. Las pantallas sin plantilla (Empresa, Editar permisos, Editar persona, Cambiar contraseña a pantalla completa) y las vistas móviles distintas de Inicio están aproximadas al estilo general.
